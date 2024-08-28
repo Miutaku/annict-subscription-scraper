@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/gocolly/colly"
 )
 
 // Response structure for each service
@@ -39,7 +40,8 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	url := fmt.Sprintf("https://annict.com/works/%s/info", animeID)
+	url := fmt.Sprintf("https://annict.com/works/%s", animeID)
+	log.Printf("Fetching page: %s", url)
 
 	res, err := http.Get(url)
 	if err != nil {
@@ -66,6 +68,8 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf("Fetched Services: %+v", services)
+
 	// Check each service's availability
 	var serviceResponses []ServiceResponse
 	for _, service := range services {
@@ -79,34 +83,64 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 func fetchStreamingServices() ([]string, error) {
-	var services []string
-	res, err := http.Get("https://annict.com/db/channels")
-	if err != nil {
-		return services, err
-	}
-	defer res.Body.Close()
+	// Create a collector
+	c := colly.NewCollector()
 
-	if res.StatusCode != 200 {
-		return services, fmt.Errorf("failed to fetch channels: %s", res.Status)
-	}
+	// Define callback for visiting the channel list page
+	channels := []map[string]string{}
+	c.OnHTML("table", func(e *colly.HTMLElement) {
+		// Find all rows within the table (excluding the header row)
+		e.ForEach("tbody tr", func(_ int, el *colly.HTMLElement) {
+			channel := map[string]string{}
 
-	doc, err := goquery.NewDocumentFromReader(res.Body)
-	if err != nil {
-		return services, err
-	}
-
-	// Extract streaming services from the page
-	doc.Find(".db-channel-group").Each(func(i int, s *goquery.Selection) {
-		group := s.Find(".db-channel-group__name").Text()
-		if strings.Contains(group, "動画配信サービス") {
-			s.Find(".db-channel-group__channels a").Each(func(j int, c *goquery.Selection) {
-				service := strings.TrimSpace(c.Text())
-				if service != "" {
-					services = append(services, service)
+			// Extract data from each table cell
+			el.ForEach("td", func(_ int, td *colly.HTMLElement) {
+				text := strings.TrimSpace(td.Text)
+				switch td.Index {
+				case 0:
+					channel["ID"] = text
+				case 1:
+					channel["名前"] = text
+				case 2:
+					channel["チャンネルグループ"] = text
+				case 3:
+					// SVG要素を検索し、data-icon属性の値をチェック
+					if td.Index == 3 {
+						text := strings.TrimSpace(td.Text)
+						channel["(Annictがサポートしている) 動画サービス"] = "" // 初期化
+						// "-"の場合、そのまま"-"をセット
+						if text == "-" {
+							channel["(Annictがサポートしている) 動画サービス"] = "-"
+						} else {
+							channel["(Annictがサポートしている) 動画サービス"] = "○"
+						}
+					}
+				case 4:
+					channel["ソート番号"] = text
+				case 5:
+					channel["状態"] = text
 				}
 			})
-		}
+
+			// Append the extracted channel data to the channels slice
+			channels = append(channels, channel)
+		})
 	})
 
-	return services, nil
+	// Visit the channel list page
+	url := "https://annict.com/db/channels"
+	err := c.Visit(url)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return nil, err
+	}
+
+	var supportedServices []string
+	for _, channel := range channels {
+		if channel["(Annictがサポートしている) 動画サービス"] == "○" {
+			supportedServices = append(supportedServices, channel["名前"])
+		}
+	}
+
+	return supportedServices, nil
 }
