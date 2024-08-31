@@ -27,7 +27,7 @@ jobs:
     - name: Push Container
       uses: docker/build-push-action@v5
       with:
-        push: push
+        push: true
         tags:
           - ghcr.io/${GITHUB_ACTOR}/${GITHUB_REPOSITORY}:$(echo $GITHUB_SHA | head -c7)
           - ghcr.io/${GITHUB_ACTOR}/${GITHUB_REPOSITORY}:latest
