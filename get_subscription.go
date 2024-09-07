@@ -5,33 +5,11 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/gocolly/colly"
 )
-
-// Response structure for each service
-type ServiceResponse struct {
-	Name      string `json:"name"`
-	Available bool   `json:"available"`
-}
-
-// Full response structure
-type Response struct {
-	Services []ServiceResponse `json:"services"`
-}
-
-func main() {
-	http.HandleFunc("/", handleRequest)
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
-	log.Printf("Server starting on port %s", port)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", port), nil))
-}
 
 func handleRequest(w http.ResponseWriter, r *http.Request) {
 	animeID := r.URL.Query().Get("id")
