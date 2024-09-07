@@ -1,9 +1,10 @@
-module goquery
+module miutaku.dev/annict-crawler
 
 go 1.22
 toolchain go1.22.0
 
 require (
+    miutaku.dev/annict-crawler v0.0.0
 	github.com/PuerkitoBio/goquery v1.9.2
 	github.com/gocolly/colly v1.2.0
 )
@@ -25,3 +26,4 @@ require (
 	google.golang.org/appengine v1.6.6 // indirect
 	google.golang.org/protobuf v1.24.0 // indirect
 )
+replace miutaku.dev/annict-crawler => ./
